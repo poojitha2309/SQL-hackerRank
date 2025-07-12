@@ -1,0 +1,76 @@
+You have two tables, D_MEMBERS and D_SHIPMENTS.
+    D_MEMBERS (CUSTOMER_ID | MEMBERSHIP_START_DATE | MEMBERSHIP_END_DATE)
+    D_SHIPMENTS (SHIPMENT_ID | SHIP_DATE | CUSTOMER_ID | QUANTITY | Cost)
+
+Q) write a SQL that can give output 
+1) number of active members now
+select count(Distinct CUSTOMER_ID) as activemembers from D_MEMBERS
+group by CUSTOMER_ID
+
+2) Starting 2019 till date, fetch the quantity shipped, monthly cost,
+also running monthly cost total at a monthly level
+WITH CTE as(
+select *,
+sum(s.Cost) OVER(order by s.SHIP_DATE) as  monthlycost
+from  D_MEMBERS m join  D_SHIPMENTS s on(m.CUSTOMER_ID=s.CUSTOMER_ID)
+)
+select SHIPMENT_ID,sum(QUANTITY) as totalquantity, monthlycost
+from CTE
+where MEMBERSHIP_START_DATE>='2019-01-01' and  MEMBERSHIP_START_DATE<='2025-05-21'
+group by SHIP_DATE,monthlycost
+order by  totalquantity 
+
+3) you have to send a gift card for top 100 customers
+who has spend more on your website from 2019 ?
+
+spend-cost
+WITH CTE as(
+select m.CUSTOMER_ID,
+ROW_NUMBER() OVER(PARTITION BY m.CUSTOMER_ID order by Cost DESC) as dnk
+ from  D_MEMBERS m join  D_SHIPMENTS s on(m.CUSTOMER_ID=s.CUSTOMER_ID)
+ group by CUSTOMER_ID)
+ select CUSTOMER_ID,dnk
+ from CTE 
+ where extract(year from SHIP_DATE)='2019' and dnk<=100
+
+............................................
+
+1---
+SELECT COUNT(*) AS active_member_count
+FROM D_MEMBERS
+WHERE CURRENT_DATE BETWEEN MEMBERSHIP_START_DATE AND MEMBERSHIP_END_DATE;
+
+2---
+SELECT 
+    DATE_TRUNC('month', SHIP_DATE) AS month,
+    SUM(QUANTITY) AS total_quantity,
+    SUM(COST) AS monthly_cost,
+    SUM(SUM(COST)) OVER (ORDER BY DATE_TRUNC('month', SHIP_DATE)) AS running_monthly_cost
+FROM D_SHIPMENTS
+WHERE SHIP_DATE >= DATE '2019-01-01'
+GROUP BY DATE_TRUNC('month', SHIP_DATE)
+ORDER BY month;
+
+3----
+WITH customer_spend AS (
+    SELECT 
+        CUSTOMER_ID,
+        SUM(COST) AS total_spent
+    FROM D_SHIPMENTS
+    WHERE SHIP_DATE >= DATE '2019-01-01'
+    GROUP BY CUSTOMER_ID
+),
+ranked_customers AS (
+    SELECT 
+        CUSTOMER_ID,
+        total_spent,
+        RANK() OVER (ORDER BY total_spent DESC) AS spend_rank
+    FROM customer_spend
+)
+SELECT 
+    CUSTOMER_ID,
+    total_spent
+FROM ranked_customers
+WHERE spend_rank <= 100;
+
+

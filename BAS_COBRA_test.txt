@@ -1,0 +1,273 @@
+ akalar@
+
+[Q1] There are two SQL tables: authors and books.
+Table : authors
+The authors dataset has 1M+ rows; here’s the first six rows:
+author_name	book_name
+author_1	book_1
+author_1	book_2
+author_2	book_3
+author_2	book_4
+author_2	book_5
+author_3	book_6
+…	…
+The books dataset also has 1M+ rows and here’s the first six:
+Table : books
+book_name	sold_copies
+book_1	1000
+book_2	1500
+book_3	34000
+book_4	29000
+book_5	40000
+book_6	4400
+…	…
+Create an SQL query that shows the TOP 3 authors who sold the most books in total!
+Solution: 
+select author_name, sum(sold_copies) as total_books_sold
+from authors a
+
+join books b on a.book_name = b.book_name
+group by author_name order by total_books_sold desc limit 3
+
+
+[Q2]
+Table : users
+user_id  username
+1        John Doe                                                                                            
+2        Jane Don                                                                                            
+3        Alice Jones                                                                                         
+4        Lisa Romero
+
+Table: training_details;
+user_training_id  user_id  training_id  training_date
+1                 1        1            "2015-08-02"
+2                 2        1            "2015-08-03"
+3                 3        2            "2015-08-02"
+4                 4        2            "2015-08-04"
+5                 2        2            "2015-08-03"
+6                 1        1            "2015-08-02"
+7                 3        2            "2015-08-04"
+8                 4        3            "2015-08-03"
+9                 1        4            "2015-08-03"
+10                3        1            "2015-08-02"
+11                4        2            "2015-08-04"
+12                3        2            "2015-08-02"
+13                1        1            "2015-08-02"
+14                4        3            "2015-08-03"
+
+Write a query to get the list of names of users who took the same training lesson more than once in the same day
+
+Expected Output:
+
+username training_id training_date   total
+John Doe  	1	"2015-08-02"	3
+Alice Jones	2	"2015-08-02"	2
+Lisa Romero	2	"2015-08-04" 	2
+Lisa Romero	3	"2015-08-03" 	2
+
+Solution:
+select u.user_name, t.training_id, t.training_date, count(t.training_id) as total
+from user u
+join trainingdetails t on u.user_id = t.user_id
+group by u.user_name, t.training_id, t.training_date having count(t.training_id) > 1;
+
+SELECT
+    u.username,
+    td.training_id,
+    td.training_date,
+    COUNT(*) AS total
+FROM
+    users u
+JOIN
+    training_details td ON u.user_id = td.user_id
+GROUP BY
+    u.username, td.training_id, td.training_date
+HAVING
+    COUNT(*) > 1;
+................................
+
+Playback Table (table name - “streams”): streaming data of Prime Video customers. It contains information at a stream level, with data such as minutes streamed, buffers encountered while streaming, location, device used, and the customer ID.
+ 
+playback_date, stream_id, device_id, device_category, customer_id, minutes_streamed, buffer_count, customer_country
+Primary key - Stream_id
+ 
+playback_date    stream_id   device_id   device_category     customer_id     minutes_streamed    buffer_count    customer_country
+2017-01-01       11from2344      108         Television          YYTGBCSDFG      12                  0               US
+2017-01-04       927612192   112         Television          HIGDSGKJAF      34                 10               UK
+2017-04-03       812618726   179         Web Browser         HJFGJLFFHJK     80                 95               IN
+2017-06-01       921629712   401         Web Browser         TEEWRJGHKJKG    238                 1               UK
+2017-12-05       4982472376  105         Mobile              KHGHJFDKLJHFF   10                  5               US
+ 
+ 
+Purchases table (table name - "transactions"): contains information on transactions conducted by customers on Prime Video.
+
+purchase_id  purchase_date customer_id
+716219621    2017-09-26    ASKGASKAJSA
+918261982    2017-03-30    UKHJDLKGSDG
+984673876    2017-12-16    UPFASFJSHDV
+836453323    2018-09-24    AWETUYOIUBV
+
+
+
+Q3.1. List the device category with at least 100,000 streams in the last 7 days?
+select device_category
+from streams where DATEDIFF(current(date) , playback_date) <= 7
+group by device_category having count(stream_id ) > 10000
+
+
+SELECT 
+    device_category, 
+    COUNT(stream_id) AS total_streams
+FROM 
+    streams
+WHERE 
+    playback_date >= CURRENT_DATE - INTERVAL '7 days'
+GROUP BY 
+    device_category
+HAVING 
+    COUNT(stream_id) >= 100000;
+
+
+Q3.2. Find the number of customers who have streamed and purchased during the last 30 days?
+select customer_id 
+from streams where DATEDIFF(current(date) , playback_date) <= 30
+and customer_id in(
+select customer_id from transactions where DATEDIFF(current(date) ,playback_date) <=30 )
+
+SELECT 
+    COUNT(DISTINCT s.customer_id) AS customers_streamed_and_purchased
+FROM 
+    streams s
+INNER JOIN 
+    transactions t
+ON 
+    s.customer_id = t.customer_id
+WHERE 
+    s.playback_date >= CURRENT_DATE - INTERVAL '30 days'
+    AND t.purchase_date >= CURRENT_DATE - INTERVAL '30 days';
+
+
+[Q4] Write a Query to print whether a player scored Highest Score in a particular match
+Table: Match
+Player Match_id Series_id Score
+Dhoni	1	1	   70
+Kohli	1	1	   50
+Dhoni	2	1	   10
+Kohli	2	1	   15
+Dhoni	1	2	   27
+Kohli	1	2	   45
+Dhoni	2	2	   69
+Kohli	2	2	   38
+
+Expected Output:
+Player Match_id Series_id HS/Not
+Dhoni	1	1	   Y
+Dhoni	2	1	   N
+Dhoni	1	2	   N
+Dhoni	2	2	   Y
+Kohli	1	1	   N
+Kohli	2	1	   Y
+Kohli	1	2	   Y
+Kohli	2	2	   N
+
+with cte as
+(select m.*,
+Max(Score) over(partition by Match_id, Series_id ) as max_score
+from match m)
+select Player,Match_id,Series_id ,
+case when max_score > score then 'N'
+     else 'Y' end as HS/Not
+from cte
+
+------SELECT 
+    m.Player, 
+    m.Match_id, 
+    m.Series_id, 
+    CASE 
+        WHEN m.Score = max_scores.max_score THEN 'Y' 
+        ELSE 'N' 
+    END AS "HS/Not"
+FROM 
+    Match m
+JOIN 
+    (SELECT 
+         Match_id, 
+         Series_id, 
+         MAX(Score) AS max_score
+     FROM 
+         Match
+     GROUP BY 
+         Match_id, 
+         Series_id) max_scores
+ON 
+    m.Match_id = max_scores.Match_id 
+    AND m.Series_id = max_scores.Series_id
+ORDER BY 
+    m.Player, 
+    m.Match_id, 
+    m.Series_id;
+
+
+
+[Q5] Write a Query to print whether an item had increased discount % on consecutive days
+Table: POSk
+Date		Product	    Discount
+01-Jan-20	A		0%
+01-Jan-20	B		5%
+01-Jan-20	C		10%
+02-Jan-20	A		10%
+02-Jan-20	B		5%
+02-Jan-20	C		5%
+03-Jan-20	A		15%
+03-Jan-20	B		10%
+03-Jan-20	C		10%
+04-Jan-20	A		0%
+04-Jan-20	B		15%
+04-Jan-20	C		10%
+
+Expected Output:
+Date		Product
+02-Jan-20	A
+03-Jan-20	A
+03-Jan-20	B
+03-Jan-20	C
+04-Jan-20	B
+--------------
+with cte as(select p.*,
+lag(Discount) over(partition by product order by Date) as previous_day_discount
+from POS p)
+
+select Date, Product
+ 
+from cte where discount::decimal > previous_day_discount::decimal
+
+
+-----WITH PosWithRank AS (
+    SELECT
+        Date,
+        Product,
+        Discount,
+        LAG(Discount) OVER (PARTITION BY Product ORDER BY Date) AS Previous_Discount
+    FROM
+        POS
+)
+SELECT
+    Date,
+    Product
+FROM
+    PosWithRank
+WHERE
+    Discount > Previous_Discount
+ORDER BY
+    Date,
+    Product;
+
+
+
+-------------
+
+How to caluclate increased discount % on consecutive days in sql
+
+
+
+  ((discount - previous_discount) / previous_discount) * 100

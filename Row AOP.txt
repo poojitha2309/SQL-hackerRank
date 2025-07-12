@@ -1,0 +1,299 @@
+ Difference between rank, dense rank and row_number
+
+2. date_trunc vs extract. Give an example for the above use case
+
+3. Drop vs Truncate vs delete 
+
+4. Diff between Where and having? When do you use groupby?
+
+5. Join Question
+
+Sample Data:
+Table A   Table B
+ID          ID
+1           1
+2           2
+3           3
+4           2
+NULL        NULL
+NULL
+3
+4
+5
+
+
+Given Query:
+Select a.*, b.* from TableA as a
+_____ join TableB as b
+On a.ID = b.ID
+
+What will be the output of above query in following joins:
+a. Inner
+A     B
+1    1 
+2    2
+2    2
+3    3 
+3    3
+
+
+b. Left 
+
+1    1 
+2    2
+2    2
+3    3 
+3    3
+4    NULL
+ NULL
+NULL   Null
+4     Null
+5    Null
+
+
+
+
+6. TABLES
+Table 1: Customer_orders
+    Columns: Order_date, order_id, Customer_id, Product_id, units, price
+Table 2: Product_details
+    Columns: Product_id, Product_name, Category
+Table 3: Customer_details
+    Columns: Customer_id, Customer_name, address, Phone_number
+    
+a. Write a query to get the top 5 products of each category basis the revenue for 2022?
+
+WITH RevenueByProduct AS (
+    SELECT
+        P.Category,
+        P.Product_name,
+        O.Product_id,
+        SUM(O.units * O.price) AS Revenue
+    FROM
+        Customer_orders O
+    INNER JOIN
+        Product_details P ON O.Product_id = P.Product_id
+    WHERE
+        YEAR(O.Order_date) = 2022
+    GROUP BY
+        P.Category, P.Product_name, O.Product_id
+),
+RankedProducts AS (
+    SELECT
+        Category,
+        Product_name,
+        Revenue,
+        RANK() OVER (PARTITION BY Category ORDER BY Revenue DESC) AS Rank
+    FROM
+        RevenueByProduct
+)
+SELECT
+    Category,
+    Product_name,
+    Revenue
+FROM
+    RankedProducts
+WHERE
+    Rank <= 5
+ORDER BY
+    Category,
+    Rank;
+
+
+
+WITH CTE AS(
+select p.Category,c.Order_date,p. Product_name,
+RANK() OVER(PARTITION BY p.Category order by c.Order_date DESC) as rnk
+from Customer_orders c join  Product_details on (c.Product_id=p.Product_id)
+group by p.Category
+order by p.Product_id)
+select Category,Product_name,Order_date
+from CTE
+where rnk<5 and
+extract (year from Order_date)='2022'
+
+7. Get the total revenue of category toys which were delivered to Bangalore on monthly basis in 2022?
+eg: Address: WTC, Brigade Gateway Campus, Malleshwaram West, Bangalore, 560055
+
+select sum(c.units*c.price) as totalrevenue,p.Category,c.order_date,extract(month from c.order_date)
+from Customer_orders c join  Product_details on (c.Product_id=p.Product_id)
+where p.Category='toys' and
+extract(year from c.order_date)='2022' and
+extract(month from c.order_date) and 
+Address LIKE %Bangalore%
+
+......................................
+
+SELECT
+    MONTH(O.Order_date) AS Month,
+    SUM(O.units * O.price) AS Total_Revenue
+FROM
+    Customer_orders O
+INNER JOIN
+    Product_details P ON O.Product_id = P.Product_id
+INNER JOIN
+    Customer_details C ON O.Customer_id = C.Customer_id
+WHERE
+    P.Category = 'Toys'
+    AND C.address LIKE '%Bangalore%'
+    AND YEAR(O.Order_date) = 2022
+GROUP BY
+    MONTH(O.Order_date)
+ORDER BY
+    Month;
+
+
+Here are the results of all types of SQL joins based on your updated Table A and Table B:
+
+Tables:
+Table A
+
+ID
+1
+2
+3
+4
+NULL
+NULL
+3
+4
+5
+Table B
+
+ID
+1
+2
+3
+2
+NULL
+1. INNER JOIN
+Query:
+
+sql
+Copy
+Edit
+SELECT a.ID AS a_ID, b.ID AS b_ID FROM TableA AS a  
+INNER JOIN TableB AS b  
+ON a.ID = b.ID;
+Explanation:
+
+Matches rows in TableA and TableB where a.ID = b.ID.
+Result:
+
+a_ID	b_ID
+1	1
+2	2
+2	2
+3	3
+3	3
+3	3
+3	3
+2. LEFT JOIN
+Query:
+
+sql
+Copy
+Edit
+SELECT a.ID AS a_ID, b.ID AS b_ID FROM TableA AS a  
+LEFT JOIN TableB AS b  
+ON a.ID = b.ID;
+Explanation:
+
+Returns all rows from TableA and matching rows from TableB. If no match, b.ID is NULL.
+Result:
+
+a_ID	b_ID
+1	1
+2	2
+2	2
+3	3
+3	3
+3	3
+3	3
+4	NULL
+4	NULL
+5	NULL
+NULL	NULL
+NULL	NULL
+3. RIGHT JOIN
+Query:
+
+sql
+Copy
+Edit
+SELECT a.ID AS a_ID, b.ID AS b_ID FROM TableA AS a  
+RIGHT JOIN TableB AS b  
+ON a.ID = b.ID;
+Explanation:
+
+Returns all rows from TableB and matching rows from TableA. If no match, a.ID is NULL.
+Result:
+
+a_ID	b_ID
+1	1
+2	2
+2	2
+3	3
+3	3
+3	3
+3	3
+NULL	NULL
+4. FULL OUTER JOIN
+Query:
+
+sql
+Copy
+Edit
+SELECT a.ID AS a_ID, b.ID AS b_ID FROM TableA AS a  
+FULL JOIN TableB AS b  
+ON a.ID = b.ID;
+Explanation:
+
+Combines the results of LEFT JOIN and RIGHT JOIN. Rows without a match in either table are included, with NULL in the missing fields.
+Result:
+
+a_ID	b_ID
+1	1
+2	2
+2	2
+3	3
+3	3
+3	3
+3	3
+4	NULL
+4	NULL
+5	NULL
+NULL	NULL
+5. CROSS JOIN
+Query:
+
+sql
+Copy
+Edit
+SELECT a.ID AS a_ID, b.ID AS b_ID FROM TableA AS a  
+CROSS JOIN TableB AS b;
+Explanation:
+
+Returns the Cartesian product of TableA and TableB. Each row from TableA is paired with every row from TableB.
+Result (partial):
+
+a_ID	b_ID
+1	1
+1	2
+1	3
+1	2
+1	NULL
+2	1
+2	2
+...	...
+The total rows in the result will be COUNT(TableA) × COUNT(TableB) = 9 × 5 = 45.
+
+
+
+
+
+
+
+
+
+

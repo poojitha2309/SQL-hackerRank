@@ -1,0 +1,151 @@
+
+
+
+========================================================== DATA SETS ====================================================
+Playback Table (table name - “streams”): streaming data of Prime Video customers. It contains information at a stream level, with data such as minutes streamed, buffers encountered while streaming, location, device used, and the customer ID.
+ 
+playback_date, stream_id, device_id, device_category, customer_id, minutes_streamed, buffer_count, customer_country
+Primary key - Stream_id
+ 
+playback_date    stream_id   device_id   device_category     customer_id     minutes_streamed    buffer_count    customer_country
+2017-01-01       112344      108         Television          YYTGBCSDFG      12                  0               US
+2017-01-04       927612192   112         Television          HIGDSGKJAF      34                 10               UK
+2017-04-03       812618726   179         Web Browser         HJFGJLFFHJK     80                 95               IN
+2017-06-01       921629712   401         Web Browser         TEEWRJGHKJKG    238                 1               UK
+2017-12-05       4982472376  105         Mobile              KHGHJFDKLJHFF   10                  5               US
+ 
+ 
+Purchases table (table name - "transactions"): contains information on transactions conducted by customers on Prime Video.
+purchase_id  purchase_date customer_id
+716219621    2017-09-26    ASKGASKAJSA
+918261982    2017-03-30    UKHJDLKGSDG
+984673876    2017-12-16    UPFASFJSHDV
+836453323    2018-09-24    AWETUYOIUBV
+ 
+
+Q1: Which month of 2017 had the most number of hours streamed?
+
+Response:
+select extract(month from playback_date),
+sum(minutes_streamed) as sum
+from streams group by extract(year from playback_date), extract(month from playback_date)
+having extract(year from playback_date) = 2017 order by sum desc limit 1 
+
+---------------------
+
+SELECT 
+    DATE_FORMAT(playback_date, '%Y-%m') AS month,
+    SUM(minutes_streamed) / 60 AS total_hours
+FROM 
+    playback
+WHERE 
+    YEAR(playback_date) = 2017
+GROUP BY 
+    month
+ORDER BY 
+    total_hours DESC
+LIMIT 1;
+---------------------
+
+
+
+
+
+
+Q2:  Write a query for identifying YoY(year on year) change in number of streamers for US for the month of January between 2017-2018?
+
+Response:
+select 
+(count distinct (case when extract(year from playback_date) = 2018 then customer_id end) -
+count distinct(case when extract(year from playback_date) = 2017 then customer_id end))* 100.0/
+count distinct (case when extract(year from playback_date) = 2017 then customer_id end) as YOY
+from streams
+where customer_country = 'US' and extract(month from playback_date) = 1 and 
+extract(year from playback_date) in (2017,2018) 
+group by extract(year from playback_date), extract(month from playback_date)
+
+
+WITH january_streamers AS (
+    SELECT 
+        EXTRACT(YEAR FROM playback_date) AS year,
+        COUNT(DISTINCT customer_id) AS num_streamers
+    FROM 
+        your_playback_table -- Replace with your actual table name
+    WHERE 
+        EXTRACT(MONTH FROM playback_date) = 1  -- January
+        AND customer_country = 'US'
+        AND EXTRACT(YEAR FROM playback_date) IN (2017, 2018)
+    GROUP BY 
+        EXTRACT(YEAR FROM playback_date)
+)
+
+SELECT 
+    s1.year AS year,
+    s1.num_streamers AS streamers_2017,
+    s2.num_streamers AS streamers_2018,
+    (s2.num_streamers - s1.num_streamers) AS yoy_change
+FROM 
+    january_streamers s1
+JOIN 
+    january_streamers s2 ON s1.year = 2017 AND s2.year = 2018;
+..............
+
+
+
+
+Q3: Define a new column called stream quality based on buffer count (high stream quality if buffer count for a given stream is <3 and low stream quality otherwise). 
+Find the number of streams by stream quality in last 7 days in US.
+
+Response:
+with cte as(select *,
+case when buffer_count < 3 then 'high stream quality'
+     else 'low stream quality' end as stream quality
+from streams
+)
+
+select
+stream quality
+, count(*) as ' number of streams'
+from cte group by stream quality where current_date - INTERVAL 7 days <= playback_date and
+customer_country = 'US'
+...........
+WITH StreamQualityCTE AS (
+    SELECT
+        stream_id,
+        CASE WHEN buffer_count < 3 THEN 'High Stream Quality'
+             ELSE 'Low Stream Quality'
+        END AS stream_quality
+    FROM
+        your_playback_table -- Replace with your actual table name
+    WHERE
+        playback_date >= CURRENT_DATE INTERVAL -7 days
+        AND customer_country = 'US'
+)
+
+SELECT
+    stream_quality,
+    COUNT(*) AS num_streams
+FROM
+    StreamQualityCTE
+GROUP BY
+    stream_quality
+ORDER BY
+    stream_quality;
+Uses COUNT(*) to count the number of rows for each stream_quality, which corresponds to the number of streams.
+
+
+
+
+Q4: Identify customers who streamed in the US but their previous stream came from a different country? 
+
+Response:
+
+with cte as (select *
+,lag(customer_country) over(partition by customer_id  order by playback_date) as lag
+from streams )
+
+select
+customer_id
+from cte where customer_country = 'US'
+and customer_country != lag
+
